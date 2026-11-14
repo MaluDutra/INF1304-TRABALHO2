@@ -1,3 +1,50 @@
+# Ambientes virtuais
 venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+*venv*/
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+
+# Cache e bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Build e distribuição
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Pacotes zip de deploy de Lambda
+*.zip
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs e sistema operacional
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
