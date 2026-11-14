@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sebo PUC — Colaborador</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-in">
+      <a class="marca" href="index.html">Sebo <span>PUC</span></a>
+      <nav class="nav">
+        <a href="comprador.html">Comprador</a>
+        <a class="ativo" href="colaborador.html">Colaborador</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Entrada de estoque</h1>
+    <p class="sub">Registre os exemplares recebidos. Quem estiver na lista de espera é avisado por e-mail.</p>
+
+    <div class="colunas">
+      <section class="painel">
+        <h2>Novos exemplares</h2>
+        <form id="form-entrada">
+          <div class="campo">
+            <label for="isbn">ISBN</label>
+            <input type="text" id="isbn" required placeholder="978-85-01-01234-5">
+          </div>
+          <div class="campo">
+            <label for="titulo">Título <span class="dica">— só para livro novo</span></label>
+            <input type="text" id="titulo">
+          </div>
+          <div class="campo">
+            <label for="autor">Autor <span class="dica">— só para livro novo</span></label>
+            <input type="text" id="autor">
+          </div>
+          <div class="campo">
+            <label for="quantidade">Quantidade recebida</label>
+            <input type="number" id="quantidade" min="1" step="1" value="1" required>
+          </div>
+          <button class="btn btn-pri" type="submit" id="enviar" style="width:100%">Dar entrada</button>
+        </form>
+        <div id="resultado" style="margin-top:16px"></div>
+      </section>
+
+      <section>
+        <div class="barra" style="align-items:center">
+          <h2 style="margin:0; flex:1">Estoque atual</h2>
+          <button class="btn" id="atualizar" type="button">Atualizar</button>
+        </div>
+        <p class="dica" style="margin-top:-10px">Clique em uma linha para preencher o ISBN.</p>
+        <div id="estado"></div>
+        <div class="painel tabela-wrap" id="tabela-painel" hidden>
+          <table>
+            <thead>
+              <tr><th>ISBN</th><th>Título</th><th>Autor</th><th class="num">Estoque</th></tr>
+            </thead>
+            <tbody id="tabela"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const form = document.getElementById("form-entrada");
+    const btnEnviar = document.getElementById("enviar");
+    const resultado = document.getElementById("resultado");
+    const estado = document.getElementById("estado");
+    const tabela = document.getElementById("tabela");
+    const tabelaPainel = document.getElementById("tabela-painel");
+
+    async function carregar() {
+      estado.innerHTML = `<p class="vazio">Carregando…</p>`;
+      try {
+        const livros = await listarLivros() || [];
+        if (!livros.length) {
+          tabelaPainel.hidden = true;
+          estado.innerHTML = `<p class="vazio">Nenhum livro cadastrado ainda.</p>`;
+          return;
+        }
+        estado.innerHTML = "";
+        tabelaPainel.hidden = false;
+        tabela.innerHTML = livros.map(l => {
+          const qtd = parseInt(l.estoque, 10) || 0;
+          return `
+            <tr data-isbn="${esc(l.isbn)}">
+              <td>${esc(l.isbn)}</td>
+              <td>${esc(l.titulo)}</td>
+              <td>${esc(l.autor)}</td>
+              <td class="num"><span class="selo ${qtd > 0 ? "selo-ok" : "selo-sem"}">${qtd}</span></td>
+            </tr>`;
+        }).join("");
+      } catch (e) {
+        tabelaPainel.hidden = true;
+        estado.innerHTML = `<div class="aviso aviso-err">${esc(e.message)}</div>`;
+      }
+    }
+
+    tabela.addEventListener("click", ev => {
+      const tr = ev.target.closest("tr[data-isbn]");
+      if (!tr) return;
+      document.getElementById("isbn").value = tr.dataset.isbn;
+      document.getElementById("titulo").value = "";
+      document.getElementById("autor").value = "";
+      document.getElementById("quantidade").focus();
+    });
+
+    form.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const dados = {
+        isbn: document.getElementById("isbn").value.trim(),
+        titulo: document.getElementById("titulo").value.trim(),
+        autor: document.getElementById("autor").value.trim(),
+        quantidade: parseInt(document.getElementById("quantidade").value, 10) || 1,
+      };
+      btnEnviar.disabled = true;
+      btnEnviar.textContent = "Enviando…";
+      resultado.innerHTML = "";
+      try {
+        const r = await darEntrada(dados);
+        const avisados = r.clientesAvisados || [];
+        resultado.innerHTML = `
+          <div class="aviso aviso-ok">
+            <strong>${esc(r.titulo || r.isbn)}</strong><br>
+            Estoque disponível: <strong>${esc(r.estoqueApos)}</strong>
+            ${avisados.length
+              ? `<div style="margin-top:8px">Clientes avisados por e-mail:</div>
+                 <ul class="lista-avisados">${avisados.map(e => `<li>${esc(e)}</li>`).join("")}</ul>`
+              : `<div style="margin-top:8px">Ninguém na lista de espera.</div>`}
+          </div>`;
+        form.reset();
+        carregar();
+      } catch (e) {
+        resultado.innerHTML = `<div class="aviso aviso-err">${esc(e.message)}</div>`;
+      } finally {
+        btnEnviar.disabled = false;
+        btnEnviar.textContent = "Dar entrada";
+      }
+    });
+
+    document.getElementById("atualizar").addEventListener("click", carregar);
+    carregar();
+  </script>
+</body>
+</html>
