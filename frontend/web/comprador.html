@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sebo PUC — Comprador</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-in">
+      <a class="marca" href="index.html">Sebo <span>PUC</span></a>
+      <nav class="nav">
+        <a class="ativo" href="comprador.html">Comprador</a>
+        <a href="colaborador.html">Colaborador</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <h1>Acervo</h1>
+    <p class="sub">Reserve um exemplar disponível ou entre na lista de espera de um livro esgotado.</p>
+
+    <div id="resultado"></div>
+
+    <div class="barra">
+      <input type="search" id="busca" placeholder="Buscar por título, autor ou ISBN…" aria-label="Buscar">
+      <button class="btn" id="atualizar" type="button">Atualizar</button>
+    </div>
+
+    <div id="estado"></div>
+    <div class="grade" id="grade"></div>
+  </main>
+
+  <dialog id="modal">
+    <form id="form-pedido" method="dialog">
+      <h2 id="modal-titulo">Pedir livro</h2>
+      <p class="sub" id="modal-sub"></p>
+
+      <div class="campo">
+        <label for="nome">Seu nome</label>
+        <input type="text" id="nome" required autocomplete="name">
+      </div>
+      <div class="campo">
+        <label for="email">Seu e-mail
+          <span class="dica">— o mesmo inscrito no tópico SNS</span></label>
+        <input type="email" id="email" required autocomplete="email">
+      </div>
+
+      <div id="modal-erro"></div>
+
+      <div class="acoes">
+        <button class="btn" type="button" id="cancelar">Cancelar</button>
+        <button class="btn btn-pri" type="submit" id="confirmar">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const grade = document.getElementById("grade");
+    const estado = document.getElementById("estado");
+    const busca = document.getElementById("busca");
+    const resultado = document.getElementById("resultado");
+    const modal = document.getElementById("modal");
+    const form = document.getElementById("form-pedido");
+    const btnConfirmar = document.getElementById("confirmar");
+    const modalErro = document.getElementById("modal-erro");
+
+    let livros = [];
+    let livroEscolhido = null;
+
+    function desenhar() {
+      const termo = busca.value.trim().toLowerCase();
+      const filtrados = livros.filter(l =>
+        [l.titulo, l.autor, l.isbn].some(v => String(v ?? "").toLowerCase().includes(termo)));
+
+      if (!livros.length) {
+        grade.innerHTML = "";
+        estado.innerHTML = `<p class="vazio">Nenhum livro cadastrado ainda.</p>`;
+        return;
+      }
+      if (!filtrados.length) {
+        grade.innerHTML = "";
+        estado.innerHTML = `<p class="vazio">Nenhum livro encontrado para “${esc(busca.value)}”.</p>`;
+        return;
+      }
+      estado.innerHTML = "";
+      grade.innerHTML = filtrados.map(l => {
+        const qtd = parseInt(l.estoque, 10) || 0;
+        const extras = [
+          l.ano ? esc(l.ano) : "",
+          l.preco != null && l.preco !== "" ? "R$ " + Number(l.preco).toFixed(2).replace(".", ",") : "",
+        ].filter(Boolean).join(" · ");
+        return `
+          <article class="livro">
+            <h3>${esc(l.titulo || l.isbn)}</h3>
+            <p class="autor">${esc(l.autor || "Autor desconhecido")}</p>
+            <p class="meta">ISBN ${esc(l.isbn)}${extras ? " · " + extras : ""}</p>
+            <div class="rodape">
+              ${qtd > 0
+                ? `<span class="selo selo-ok">${qtd} em estoque</span>`
+                : `<span class="selo selo-sem">Sem estoque</span>`}
+              <button class="btn ${qtd > 0 ? "btn-pri" : ""}" type="button" data-isbn="${esc(l.isbn)}">
+                ${qtd > 0 ? "Reservar" : "Entrar na lista de espera"}
+              </button>
+            </div>
+          </article>`;
+      }).join("");
+    }
+
+    async function carregar() {
+      estado.innerHTML = `<p class="vazio">Carregando acervo…</p>`;
+      try {
+        livros = await listarLivros() || [];
+        desenhar();
+      } catch (e) {
+        grade.innerHTML = "";
+        estado.innerHTML = `<div class="aviso aviso-err">${esc(e.message)}</div>`;
+      }
+    }
+
+    function abrirPedido(isbn) {
+      livroEscolhido = livros.find(l => String(l.isbn) === isbn);
+      if (!livroEscolhido) return;
+      const disponivel = (parseInt(livroEscolhido.estoque, 10) || 0) > 0;
+      document.getElementById("modal-titulo").textContent =
+        disponivel ? "Reservar exemplar" : "Entrar na lista de espera";
+      document.getElementById("modal-sub").textContent =
+        `${livroEscolhido.titulo || livroEscolhido.isbn}` +
+        (livroEscolhido.autor ? ` — ${livroEscolhido.autor}` : "");
+      document.getElementById("nome").value = lembrar("sebo.nome");
+      document.getElementById("email").value = lembrar("sebo.email");
+      modalErro.innerHTML = "";
+      btnConfirmar.disabled = false;
+      btnConfirmar.textContent = "Confirmar";
+      modal.showModal();
+    }
+
+    grade.addEventListener("click", ev => {
+      const btn = ev.target.closest("button[data-isbn]");
+      if (btn) abrirPedido(btn.dataset.isbn);
+    });
+
+    document.getElementById("cancelar").addEventListener("click", () => modal.close());
+
+    form.addEventListener("submit", async ev => {
+      ev.preventDefault();
+      const nome = document.getElementById("nome").value.trim();
+      const email = document.getElementById("email").value.trim();
+      guardar("sebo.nome", nome);
+      guardar("sebo.email", email);
+
+      btnConfirmar.disabled = true;
+      btnConfirmar.textContent = "Enviando…";
+      modalErro.innerHTML = "";
+      try {
+        const r = await fazerPedido({ nome, email, isbn: livroEscolhido.isbn });
+        modal.close();
+        const reservado = r.status === "RESERVADO";
+        resultado.innerHTML = `
+          <div class="aviso ${reservado ? "aviso-ok" : "aviso-warn"}">
+            <strong>${reservado ? "Reservado!" : "Você está na lista de espera."}</strong>
+            ${esc(r.mensagem)}<br>
+            <span class="dica">Pedido: <code>${esc(r.pedidoId)}</code></span>
+          </div>`;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        carregar();
+      } catch (e) {
+        modalErro.innerHTML = `<div class="aviso aviso-err">${esc(e.message)}</div>`;
+        btnConfirmar.disabled = false;
+        btnConfirmar.textContent = "Tentar de novo";
+      }
+    });
+
+    busca.addEventListener("input", desenhar);
+    document.getElementById("atualizar").addEventListener("click", carregar);
+    carregar();
+  </script>
+</body>
+</html>
