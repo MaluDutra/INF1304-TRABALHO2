@@ -49,6 +49,8 @@ def lambda_handler(event, context):
     return resposta(200, {
         "status": "RESERVADO" if disponivel else "AGUARDANDO",
         "pedidoId": pedido_id,
+        "isbn": isbn, "titulo": livro.get("titulo", isbn),
+        "nome": nome, "email": email, "criadoEm": agora,
         "mensagem": "Exemplar disponivel. Voce recebera um e-mail para retirar na livraria."
                     if disponivel else
                     "Sem estoque no momento. Voce entrou na lista de espera."})

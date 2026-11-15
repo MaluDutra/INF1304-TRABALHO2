@@ -29,17 +29,28 @@
             <label for="isbn">ISBN</label>
             <input type="text" id="isbn" required placeholder="978-85-01-01234-5">
           </div>
+          <p class="dica" style="margin:-6px 0 14px">Campos em branco mantêm o valor que já está cadastrado.</p>
           <div class="campo">
-            <label for="titulo">Título <span class="dica">— só para livro novo</span></label>
+            <label for="titulo">Título</label>
             <input type="text" id="titulo">
           </div>
           <div class="campo">
-            <label for="autor">Autor <span class="dica">— só para livro novo</span></label>
+            <label for="autor">Autor</label>
             <input type="text" id="autor">
           </div>
+          <div class="campo-duplo">
+            <div class="campo">
+              <label for="ano">Ano</label>
+              <input type="number" id="ano" step="1" placeholder="1899">
+            </div>
+            <div class="campo">
+              <label for="preco">Preço (R$)</label>
+              <input type="number" id="preco" min="0" step="0.01" placeholder="24.90">
+            </div>
+          </div>
           <div class="campo">
-            <label for="quantidade">Quantidade recebida</label>
-            <input type="number" id="quantidade" min="1" step="1" value="1" required>
+            <label for="quantidade">Quantidade recebida <span class="dica">— 0 para só editar os dados</span></label>
+            <input type="number" id="quantidade" min="0" step="1" value="1" required>
           </div>
           <button class="btn btn-pri" type="submit" id="enviar" style="width:100%">Dar entrada</button>
         </form>
@@ -51,12 +62,12 @@
           <h2 style="margin:0; flex:1">Estoque atual</h2>
           <button class="btn" id="atualizar" type="button">Atualizar</button>
         </div>
-        <p class="dica" style="margin-top:-10px">Clique em uma linha para preencher o ISBN.</p>
+        <p class="dica" style="margin-top:-10px">Clique em uma linha para preencher o formulário com os dados do livro.</p>
         <div id="estado"></div>
         <div class="painel tabela-wrap" id="tabela-painel" hidden>
           <table>
             <thead>
-              <tr><th>ISBN</th><th>Título</th><th>Autor</th><th class="num">Estoque</th></tr>
+              <tr><th>ISBN</th><th>Título</th><th>Autor</th><th class="num">Ano</th><th class="num">Preço</th><th class="num">Estoque</th></tr>
             </thead>
             <tbody id="tabela"></tbody>
           </table>
@@ -74,11 +85,13 @@
     const estado = document.getElementById("estado");
     const tabela = document.getElementById("tabela");
     const tabelaPainel = document.getElementById("tabela-painel");
+    const campo = id => document.getElementById(id);
+    let livros = [];
 
     async function carregar() {
       estado.innerHTML = `<p class="vazio">Carregando…</p>`;
       try {
-        const livros = await listarLivros() || [];
+        livros = await listarLivros() || [];
         if (!livros.length) {
           tabelaPainel.hidden = true;
           estado.innerHTML = `<p class="vazio">Nenhum livro cadastrado ainda.</p>`;
@@ -93,6 +106,8 @@
               <td>${esc(l.isbn)}</td>
               <td>${esc(l.titulo)}</td>
               <td>${esc(l.autor)}</td>
+              <td class="num">${esc(l.ano ?? "")}</td>
+              <td class="num" style="white-space:nowrap">${esc(formatarPreco(l.preco))}</td>
               <td class="num"><span class="selo ${qtd > 0 ? "selo-ok" : "selo-sem"}">${qtd}</span></td>
             </tr>`;
         }).join("");
@@ -105,19 +120,26 @@
     tabela.addEventListener("click", ev => {
       const tr = ev.target.closest("tr[data-isbn]");
       if (!tr) return;
-      document.getElementById("isbn").value = tr.dataset.isbn;
-      document.getElementById("titulo").value = "";
-      document.getElementById("autor").value = "";
-      document.getElementById("quantidade").focus();
+      const l = livros.find(x => String(x.isbn) === tr.dataset.isbn) || { isbn: tr.dataset.isbn };
+      campo("isbn").value = l.isbn;
+      campo("titulo").value = l.titulo ?? "";
+      campo("autor").value = l.autor ?? "";
+      campo("ano").value = l.ano ?? "";
+      campo("preco").value = l.preco ?? "";
+      campo("quantidade").focus();
+      campo("quantidade").select();
     });
 
     form.addEventListener("submit", async ev => {
       ev.preventDefault();
+      const qtd = parseInt(campo("quantidade").value, 10);
       const dados = {
-        isbn: document.getElementById("isbn").value.trim(),
-        titulo: document.getElementById("titulo").value.trim(),
-        autor: document.getElementById("autor").value.trim(),
-        quantidade: parseInt(document.getElementById("quantidade").value, 10) || 1,
+        isbn: campo("isbn").value.trim(),
+        titulo: campo("titulo").value.trim(),
+        autor: campo("autor").value.trim(),
+        ano: campo("ano").value.trim(),
+        preco: campo("preco").value.trim(),
+        quantidade: Number.isNaN(qtd) ? 1 : qtd,
       };
       btnEnviar.disabled = true;
       btnEnviar.textContent = "Enviando…";
@@ -127,8 +149,14 @@
         const avisados = r.clientesAvisados || [];
         resultado.innerHTML = `
           <div class="aviso aviso-ok">
-            <strong>${esc(r.titulo || r.isbn)}</strong><br>
-            Estoque disponível: <strong>${esc(r.estoqueApos)}</strong>
+            <strong>${esc(r.titulo || r.isbn)}</strong>
+            <dl class="ficha">
+              <dt>ISBN</dt><dd>${esc(r.isbn)}</dd>
+              <dt>Autor</dt><dd>${esc(r.autor || "—")}</dd>
+              <dt>Ano</dt><dd>${esc(r.ano ?? "—")}</dd>
+              <dt>Preço</dt><dd>${esc(formatarPreco(r.preco) || "—")}</dd>
+              <dt>Estoque</dt><dd>${esc(r.estoqueApos)} disponível</dd>
+            </dl>
             ${avisados.length
               ? `<div style="margin-top:8px">Clientes avisados por e-mail:</div>
                  <ul class="lista-avisados">${avisados.map(e => `<li>${esc(e)}</li>`).join("")}</ul>`

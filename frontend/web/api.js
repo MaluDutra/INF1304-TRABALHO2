@@ -40,11 +40,13 @@ function fazerPedido({ nome, email, isbn }) {
   }, 15000);
 }
 
-function darEntrada({ isbn, titulo, autor, quantidade }) {
+function darEntrada({ isbn, titulo, autor, ano, preco, quantidade }) {
   const corpo = { isbn, quantidade };
-  // a Lambda usa if_not_exists, mas só mandamos título/autor se preenchidos
+  // só mandamos o que foi preenchido: campos ausentes mantêm o valor atual na tabela
   if (titulo) corpo.titulo = titulo;
   if (autor) corpo.autor = autor;
+  if (ano !== "" && ano != null) corpo.ano = Number(ano);
+  if (preco !== "" && preco != null) corpo.preco = Number(preco);
   return chamar(window.CONFIG.URL_ESTOQUE, {
     method: "POST",
     body: JSON.stringify(corpo),
@@ -52,6 +54,23 @@ function darEntrada({ isbn, titulo, autor, quantidade }) {
 }
 
 // utilidades compartilhadas pelas páginas
+function formatarPreco(preco) {
+  if (preco == null || preco === "") return "";
+  const n = Number(preco);
+  return Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "";
+}
+
+// pedidoId = "<data ISO>#<8 hex>"  ->  "078595A3 (14/11/2026 às 21:09)"
+function formatarPedido(pedidoId, criadoEm) {
+  const [iso, codigo] = String(pedidoId || "").split("#");
+  const d = new Date(criadoEm || iso);
+  if (!codigo) return String(pedidoId || "");
+  if (isNaN(d)) return codigo.toUpperCase();
+  const data = d.toLocaleDateString("pt-BR");
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${codigo.toUpperCase()} (${data} às ${hora})`;
+}
+
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",

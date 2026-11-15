@@ -91,7 +91,7 @@
         const qtd = parseInt(l.estoque, 10) || 0;
         const extras = [
           l.ano ? esc(l.ano) : "",
-          l.preco != null && l.preco !== "" ? "R$ " + Number(l.preco).toFixed(2).replace(".", ",") : "",
+          esc(formatarPreco(l.preco)),
         ].filter(Boolean).join(" · ");
         return `
           <article class="livro">
@@ -128,8 +128,8 @@
       document.getElementById("modal-titulo").textContent =
         disponivel ? "Reservar exemplar" : "Entrar na lista de espera";
       document.getElementById("modal-sub").textContent =
-        `${livroEscolhido.titulo || livroEscolhido.isbn}` +
-        (livroEscolhido.autor ? ` — ${livroEscolhido.autor}` : "");
+        [livroEscolhido.titulo || livroEscolhido.isbn, livroEscolhido.autor,
+         livroEscolhido.ano, formatarPreco(livroEscolhido.preco)].filter(Boolean).join(" · ");
       document.getElementById("nome").value = lembrar("sebo.nome");
       document.getElementById("email").value = lembrar("sebo.email");
       modalErro.innerHTML = "";
@@ -162,8 +162,15 @@
         resultado.innerHTML = `
           <div class="aviso ${reservado ? "aviso-ok" : "aviso-warn"}">
             <strong>${reservado ? "Reservado!" : "Você está na lista de espera."}</strong>
-            ${esc(r.mensagem)}<br>
-            <span class="dica">Pedido: <code>${esc(r.pedidoId)}</code></span>
+            ${esc(r.mensagem)}
+            <dl class="ficha">
+              <dt>Livro</dt><dd>${esc(r.titulo || livroEscolhido.titulo || livroEscolhido.isbn)}</dd>
+              <dt>ISBN</dt><dd>${esc(r.isbn || livroEscolhido.isbn)}</dd>
+              <dt>Nome</dt><dd>${esc(r.nome ?? nome) || "—"}</dd>
+              <dt>E-mail</dt><dd>${esc(r.email || email)}</dd>
+              <dt>Status</dt><dd>${esc(r.status)}</dd>
+              <dt>Pedido</dt><dd>${esc(formatarPedido(r.pedidoId, r.criadoEm))}</dd>
+            </dl>
           </div>`;
         window.scrollTo({ top: 0, behavior: "smooth" });
         carregar();

@@ -270,6 +270,22 @@ label {
 .aviso-warn { background: var(--warn-bg); color: var(--warn-fg); }
 .aviso-err { background: var(--err-bg); color: var(--err-fg); }
 .aviso code { font-size: .82rem; word-break: break-all; color: var(--text); }
+.ficha {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  margin: 12px 0 0;
+}
+.ficha dt {
+  font-size: .66rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  opacity: .75;
+  align-self: center;
+}
+.ficha dd { margin: 0; color: var(--text); word-break: break-word; }
+.campo-duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
 .vazio { color: var(--muted); text-align: center; padding: 48px 0; font-family: var(--display); font-style: italic; font-size: 1.3rem; }
 
 @keyframes entra {

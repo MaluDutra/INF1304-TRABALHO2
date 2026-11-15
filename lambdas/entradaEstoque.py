@@ -1,4 +1,5 @@
 import os, json, boto3
+from decimal import Decimal, InvalidOperation
 from boto3.dynamodb.conditions import Key, Attr
 
 dynamodb = boto3.resource("dynamodb")
@@ -13,22 +14,51 @@ def resposta(status, corpo):
                         "Access-Control-Allow-Origin": "*"},
             "body": json.dumps(corpo, default=str, ensure_ascii=False)}
 
+def vazio(valor):
+    return valor is None or str(valor).strip() == ""
+
 def lambda_handler(event, context):
     corpo = json.loads(event["body"]) if isinstance(event.get("body"), str) else event
-    isbn = corpo.get("isbn")
+    isbn = str(corpo.get("isbn") or "").strip()
     if not isbn:
         return resposta(400, {"erro": "informe o isbn"})
-    quantidade = int(corpo.get("quantidade", 1))
+    try:
+        quantidade = int(corpo.get("quantidade", 1))
+        ano = None if vazio(corpo.get("ano")) else int(corpo["ano"])
+        preco = None if vazio(corpo.get("preco")) else Decimal(str(corpo["preco"]))
+    except (ValueError, InvalidOperation):
+        return resposta(400, {"erro": "quantidade, ano e preco devem ser numeros"})
+    if quantidade < 0 or (preco is not None and preco < 0):
+        return resposta(400, {"erro": "quantidade e preco nao podem ser negativos"})
 
-    # cadastra o livro se for novo e soma ao estoque
+    # campos informados sobrescrevem; campos vazios mantem o valor atual
+    # (livro novo sem titulo fica com o isbn como titulo)
+    novos = {"titulo": None if vazio(corpo.get("titulo")) else str(corpo["titulo"]).strip(),
+             "autor": None if vazio(corpo.get("autor")) else str(corpo["autor"]).strip(),
+             "ano": ano, "preco": preco}
+    sets = ["#estoque = if_not_exists(#estoque, :zero) + :qtd"]
+    nomes = {"#estoque": "estoque"}
+    valores = {":qtd": quantidade, ":zero": 0}
+    for campo, valor in novos.items():
+        if valor is not None:
+            sets.append(f"#{campo} = :{campo}")
+            nomes[f"#{campo}"] = campo
+            valores[f":{campo}"] = valor
+    if novos["titulo"] is None:
+        sets.append("#titulo = if_not_exists(#titulo, :isbn)")
+        nomes["#titulo"] = "titulo"
+        valores[":isbn"] = isbn
+    if novos["autor"] is None:
+        sets.append("#autor = if_not_exists(#autor, :semAutor)")
+        nomes["#autor"] = "autor"
+        valores[":semAutor"] = ""
+
+    # cadastra o livro se for novo, atualiza os dados informados e soma ao estoque
     livro = livros.update_item(
         Key={"isbn": isbn},
-        UpdateExpression=("SET estoque = if_not_exists(estoque, :zero) + :qtd, "
-                          "titulo = if_not_exists(titulo, :tit), "
-                          "autor = if_not_exists(autor, :aut)"),
-        ExpressionAttributeValues={":qtd": quantidade, ":zero": 0,
-                                   ":tit": corpo.get("titulo", isbn),
-                                   ":aut": corpo.get("autor", "")},
+        UpdateExpression="SET " + ", ".join(sets),
+        ExpressionAttributeNames=nomes,
+        ExpressionAttributeValues=valores,
         ReturnValues="ALL_NEW")["Attributes"]
 
     # lista de espera daquele livro, em ordem de chegada
@@ -59,6 +89,9 @@ def lambda_handler(event, context):
             ExpressionAttributeValues={":um": 1})
         avisados.append(pedido["email"])
 
+    estoque_apos = int(livro["estoque"]) - len(avisados)
     return resposta(200, {"isbn": isbn, "titulo": livro.get("titulo"),
-                          "estoqueApos": int(livro["estoque"]) - len(avisados),
+                          "autor": livro.get("autor", ""),
+                          "ano": livro.get("ano"), "preco": livro.get("preco"),
+                          "estoque": estoque_apos, "estoqueApos": estoque_apos,
                           "clientesAvisados": avisados})
