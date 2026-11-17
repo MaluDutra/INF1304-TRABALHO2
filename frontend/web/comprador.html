@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sebo PUC — Comprador</title>
+  <title>SePUC — Comprador</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topo">
     <div class="topo-in">
-      <a class="marca" href="index.html">Sebo <span>PUC</span></a>
+      <a class="marca" href="index.html">Se<span>PUC</span></a>
+      <span class="marca-nota">livros que circulam</span>
       <nav class="nav">
         <a class="ativo" href="comprador.html">Comprador</a>
         <a href="colaborador.html">Colaborador</a>
@@ -18,7 +19,8 @@
   </header>
 
   <main>
-    <h1>Acervo</h1>
+    <p class="kicker">Área do comprador</p>
+    <h1>O <em>acervo</em></h1>
     <p class="sub">Reserve um exemplar disponível ou entre na lista de espera de um livro esgotado.</p>
 
     <div id="resultado"></div>
@@ -130,8 +132,8 @@
       document.getElementById("modal-sub").textContent =
         [livroEscolhido.titulo || livroEscolhido.isbn, livroEscolhido.autor,
          livroEscolhido.ano, formatarPreco(livroEscolhido.preco)].filter(Boolean).join(" · ");
-      document.getElementById("nome").value = lembrar("sebo.nome");
-      document.getElementById("email").value = lembrar("sebo.email");
+      document.getElementById("nome").value = lembrar("sepuc.nome");
+      document.getElementById("email").value = lembrar("sepuc.email");
       modalErro.innerHTML = "";
       btnConfirmar.disabled = false;
       btnConfirmar.textContent = "Confirmar";
@@ -149,8 +151,8 @@
       ev.preventDefault();
       const nome = document.getElementById("nome").value.trim();
       const email = document.getElementById("email").value.trim();
-      guardar("sebo.nome", nome);
-      guardar("sebo.email", email);
+      guardar("sepuc.nome", nome);
+      guardar("sepuc.email", email);
 
       btnConfirmar.disabled = true;
       btnConfirmar.textContent = "Enviando…";
